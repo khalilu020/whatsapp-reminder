@@ -9,7 +9,7 @@ import { ReminderScheduler } from './scheduler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
-const API_SECRET = (process.env.API_SECRET || '').trim();
+const API_SECRET = (process.env.REMINDLY_SECRET || '').trim();
 const DEFAULT_TIMEZONE = process.env.DEFAULT_TIMEZONE || 'UTC';
 const MONGO_URI = process.env.MONGO_URI || '';
 
@@ -50,7 +50,7 @@ app.get('/health', (_req, res) => {
 });
 
 // WhatsApp connection status & QR data URL
-app.get('/api/whatsapp/status', requireAuth, (_req, res) => {
+app.get('/api/whatsapp/status', (_req, res) => {
   res.json(whatsapp.getStatus());
 });
 
