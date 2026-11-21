@@ -188,9 +188,9 @@ export class ReminderScheduler {
           });
         } catch (err) {
           console.error(`[Scheduler] Failed to send "${schedule.title}":`, err.message);
+          // Do NOT lock lastTriggeredKey on failure — allow subsequent ticks within the 3-minute grace window to retry!
           await this.store.upsertSchedule({
             ...schedule,
-            lastTriggeredKey: decision.triggerKey,
             lastStatus: `failed: ${err.message}`,
           });
           await this.store.addLog({

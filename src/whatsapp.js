@@ -242,12 +242,37 @@ export class WhatsAppService {
       throw new Error('Message text cannot be empty.');
     }
 
-    const result = await this.sock.sendMessage(jid, { text: trimmedMessage });
-    return {
-      jid,
-      messageId: result?.key?.id || null,
-      sentAt: new Date().toISOString(),
-    };
+    // 1. Resolve canonical JID via onWhatsApp to initialize session pre-keys
+    let targetJid = jid;
+    try {
+      const results = await this.sock.onWhatsApp(jid);
+      if (Array.isArray(results) && results.length > 0 && results[0]?.exists && results[0]?.jid) {
+        targetJid = results[0].jid;
+      }
+    } catch (checkErr) {
+      console.warn(`[WhatsApp] onWhatsApp check warning for ${jid}:`, checkErr.message);
+    }
+
+    // 2. Automatic retry up to 3 attempts with backoff to eliminate transient "not-acceptable" socket errors
+    let lastError = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const result = await this.sock.sendMessage(targetJid, { text: trimmedMessage });
+        return {
+          jid: targetJid,
+          messageId: result?.key?.id || null,
+          sentAt: new Date().toISOString(),
+        };
+      } catch (err) {
+        lastError = err;
+        console.warn(`[WhatsApp] Send attempt ${attempt}/3 to ${targetJid} failed (${err.message}). Retrying...`);
+        if (attempt < 3) {
+          await new Promise((r) => setTimeout(r, 1500 * attempt));
+        }
+      }
+    }
+
+    throw lastError || new Error(`Failed to send WhatsApp message to ${targetJid}`);
   }
 }
 
