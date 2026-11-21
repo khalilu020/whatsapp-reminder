@@ -53,7 +53,7 @@ export function getLocalTimeParts(date = new Date(), timeZone = 'UTC') {
 /**
  * Determines whether a schedule should dispatch a WhatsApp message at `now`.
  */
-export function shouldTriggerSchedule(schedule, now = new Date(), fallbackTimeZone = 'UTC') {
+export function shouldTriggerSchedule(schedule, now = new Date(), fallbackTimeZone = 'Asia/Karachi') {
   if (!schedule || !schedule.enabled || !schedule.whatsappEnabled) {
     return { due: false };
   }
@@ -61,14 +61,30 @@ export function shouldTriggerSchedule(schedule, now = new Date(), fallbackTimeZo
     return { due: false };
   }
 
-  const local = getLocalTimeParts(now, schedule.timezone || fallbackTimeZone);
+  // Force local Pakistan timezone if user timezone is missing or invalid UTC
+  const effectiveTz = (schedule.timezone && schedule.timezone !== 'UTC')
+    ? schedule.timezone
+    : (fallbackTimeZone || 'Asia/Karachi');
 
-  // Prevent duplicate delivery within the exact same minute
+  const local = getLocalTimeParts(now, effectiveTz);
+
+  // Prevent duplicate delivery within the exact same minute key
   if (schedule.lastTriggeredKey === local.triggerKey) {
     return { due: false };
   }
 
-  if (local.timeStr !== schedule.time) {
+  // Check minute difference between current clock and scheduled time
+  const [curH, curM] = local.timeStr.split(':').map(Number);
+  const [schH, schM] = schedule.time.split(':').map(Number);
+  const diffMinutes = (curH * 60 + curM) - (schH * 60 + schM);
+
+  // Allow trigger if it is the exact minute or within 3 minutes of wake
+  if (diffMinutes < 0 || diffMinutes > 3) {
+    return { due: false };
+  }
+
+  // Prevent sending multiple times for the same routine on the same date
+  if (schedule.lastTriggeredDate === local.dateStr && schedule.lastTriggeredTime === schedule.time) {
     return { due: false };
   }
 
@@ -78,12 +94,12 @@ export function shouldTriggerSchedule(schedule, now = new Date(), fallbackTimeZo
     if (!days.includes(local.weekday)) {
       return { due: false };
     }
-    return { due: true, triggerKey: local.triggerKey, isOneTime: false };
+    return { due: true, triggerKey: local.triggerKey, dateStr: local.dateStr, isOneTime: false };
   }
 
   // One-time scheduled activity
   if (schedule.date && schedule.date === local.dateStr) {
-    return { due: true, triggerKey: local.triggerKey, isOneTime: true };
+    return { due: true, triggerKey: local.triggerKey, dateStr: local.dateStr, isOneTime: true };
   }
 
   return { due: false };
@@ -156,6 +172,8 @@ export class ReminderScheduler {
           await this.store.upsertSchedule({
             ...schedule,
             lastTriggeredKey: decision.triggerKey,
+            lastTriggeredDate: decision.dateStr,
+            lastTriggeredTime: schedule.time,
             lastSentAt: result.sentAt,
             lastStatus: 'sent',
             enabled: decision.isOneTime ? false : schedule.enabled,

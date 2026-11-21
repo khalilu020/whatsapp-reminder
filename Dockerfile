@@ -8,8 +8,8 @@ RUN npm install --omit=dev
 COPY . .
 
 # Hugging Face Spaces uses port 7860 by default; Render injects PORT
-ENV PORT=7860
-EXPOSE 7860
+ENV PORT=8080
+EXPOSE 8080
 
 CMD ["npm", "start"]
 

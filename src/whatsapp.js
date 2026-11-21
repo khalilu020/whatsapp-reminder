@@ -129,9 +129,23 @@ export class WhatsAppService {
           name: this.sock.user?.name || 'Linked WhatsApp Account',
         };
         console.log(`[WhatsApp] Connected successfully as ${this.connectedUser.id}`);
+
+        // Periodic keep-alive heartbeat to prevent idle connection drops
+        if (this.keepAliveTimer) clearInterval(this.keepAliveTimer);
+        this.keepAliveTimer = setInterval(async () => {
+          if (this.status === 'connected' && this.sock) {
+            try {
+              await this.sock.sendPresenceUpdate('available');
+            } catch (_) {}
+          }
+        }, 25000);
       }
 
       if (connection === 'close') {
+        if (this.keepAliveTimer) {
+          clearInterval(this.keepAliveTimer);
+          this.keepAliveTimer = null;
+        }
         const statusCode = lastDisconnect?.error?.output?.statusCode;
         const isLoggedOut = statusCode === DisconnectReason.loggedOut;
         this.connectedUser = null;

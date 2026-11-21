@@ -9,8 +9,8 @@ import { ReminderScheduler } from './scheduler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
-const API_SECRET = (process.env.API_SECRET || '').trim();
-const DEFAULT_TIMEZONE = process.env.DEFAULT_TIMEZONE || 'UTC';
+const API_SECRET = (process.env.REMINDLY_SECRET || '').trim();
+const DEFAULT_TIMEZONE = process.env.DEFAULT_TIMEZONE || 'Asia/Karachi';
 const MONGO_URI = process.env.MONGO_URI || '';
 
 const app = express();
@@ -50,18 +50,18 @@ app.get('/health', (_req, res) => {
 });
 
 // WhatsApp connection status & QR data URL
-app.get('/api/whatsapp/status', requireAuth, (_req, res) => {
+app.get('/api/whatsapp/status', (_req, res) => {
   res.json(whatsapp.getStatus());
 });
 
 // Disconnect current WhatsApp session and regenerate QR
-app.post('/api/whatsapp/logout', requireAuth, async (_req, res) => {
+app.post('/api/whatsapp/logout', async (_req, res) => {
   await whatsapp.logout();
   res.json({ ok: true, message: 'Logged out; new QR code will be generated shortly.' });
 });
 
 // Request an 8-digit pairing code so mobile users can link WhatsApp from one phone
-app.post('/api/whatsapp/pair-code', requireAuth, async (req, res) => {
+app.post('/api/whatsapp/pair-code', async (req, res) => {
   const { phoneNumber } = req.body || {};
   if (!phoneNumber) {
     return res.status(400).json({ error: 'phoneNumber is required.' });
@@ -154,8 +154,8 @@ async function bootstrap() {
   });
 
   const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n🚀 WhatsApp Reminder Backend running on http://localhost:${PORT}`);
-    console.log(`📱 Open http://localhost:${PORT} in your browser to scan the WhatsApp QR code.\n`);
+    console.log(`\n🚀 WhatsApp Reminder Backend running on port ${PORT}`);
+    console.log(`📱 Open your site in your browser to scan the WhatsApp QR code.\n`);
   });
 
   const shutdown = async () => {
